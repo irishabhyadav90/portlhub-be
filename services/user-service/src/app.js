@@ -1,9 +1,13 @@
 import express from 'express';
+import morgan from 'morgan';
 import userRoutes from './routes/user.routes.js';
 
 export function createApp() {
   const app = express();
 
+  // Request logging. 'dev' logs method/path/status/response-time only — never
+  // request bodies, so passwords and tokens are not exposed.
+  app.use(morgan('dev'));
   app.use(express.json());
 
   // Lightweight health check for local checks and future orchestration.
