@@ -1,35 +1,38 @@
-import { validationResult } from 'express-validator';
-
 /**
- * Generic validation runner.
+ * Generic Zod validation runner.
  *
- * Usage: pass an array of express-validator chains. They run in order, then
- * this collects any failures and responds with a 400 + field-level errors.
+ * Pass a map of request parts to Zod schemas. Each named part is parsed; on
+ * success the parsed (coerced/defaulted) value replaces `req[part]`, on failure
+ * we respond with a 400 + field-level errors.
  *
- *   router.post('/register', validate(registerRules), controller.register)
+ *   router.post('/register', validate({ body: registerSchema }), controller.register)
+ *   router.get('/:username', validate({ params: usernameParamSchema }), controller.getPublicProfile)
  */
-export function validate(rules) {
-  return async (req, res, next) => {
-    for (const rule of rules) {
-      await rule.run(req);
+export function validate(schemas) {
+  return (req, res, next) => {
+    for (const part of ['body', 'params', 'query']) {
+      const schema = schemas[part];
+      if (!schema) continue;
+
+      const result = schema.safeParse(req[part]);
+      if (!result.success) {
+        const fields = result.error.issues.map((issue) => ({
+          field: issue.path.join('.'),
+          message: issue.message,
+        }));
+
+        return res.status(400).json({
+          error: {
+            message: 'Validation failed',
+            code: 'VALIDATION_ERROR',
+            fields,
+          },
+        });
+      }
+
+      req[part] = result.data;
     }
 
-    const result = validationResult(req);
-    if (result.isEmpty()) {
-      return next();
-    }
-
-    const fields = result.array().map((err) => ({
-      field: err.path,
-      message: err.msg,
-    }));
-
-    return res.status(400).json({
-      error: {
-        message: 'Validation failed',
-        code: 'VALIDATION_ERROR',
-        fields,
-      },
-    });
+    return next();
   };
 }

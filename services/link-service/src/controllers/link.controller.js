@@ -9,8 +9,10 @@ import { resolveUrl } from '../utils/resolveUrl.js';
  *    resolved server-side from the platform's urlTemplate (never trust the
  *    client to build it)
  *
- * Throws a tagged error (err.status / err.code) on bad input so the controller
- * can translate it into a clean response.
+ * Entry shape (custom vs non-custom) is already guaranteed by the Zod schema.
+ * The only check left here is platform existence, which needs a DB lookup; it
+ * throws a tagged error (err.status / err.code) the controller turns into a
+ * clean response.
  */
 async function buildLinks(inputLinks) {
   // Look up every referenced slug in one query.
@@ -33,12 +35,6 @@ async function buildLinks(inputLinks) {
     const isVisible = entry.isVisible ?? true;
 
     if (entry.isCustom) {
-      if (!entry.url) {
-        const err = new Error('Custom links require a url');
-        err.status = 400;
-        err.code = 'INVALID_LINK';
-        throw err;
-      }
       return {
         platformSlug: null,
         handle: null,
